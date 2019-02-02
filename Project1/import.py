@@ -3,6 +3,8 @@ import os
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.sql import text
 
 if not os.getenv("DATABASE_URL"):
     raise RuntimeError("DATABASE_URL is not set")
@@ -10,19 +12,40 @@ if not os.getenv("DATABASE_URL"):
 
 
 engine = create_engine(os.getenv("DATABASE_URL"))
+
+# connect database
+engine = create_engine(os.getenv("DATABASE_URL"))
+conn = engine.connect()
+
+# create a catalog of Tables
+metadata = MetaData()
+
+# create the books table
+books = Table("books", metadata,
+	Column("id", Integer, Sequence("Books_id_seq"), primary_key = True),
+	Column("isbn", String),
+	Column("title", String),
+	Column("author", String),
+	Column("year", Integer))
+
 db = scoped_session(sessionmaker(bind=engine))
 
-def main():
- f = open("books.csv")
- reader = csv.reader(f)
+# prepare the SQL statement to be used
+s = text("INSERT INTO books(isbn, title, author, year) VALUES(:a, :b, :c, :d)")
 
- db.execute("CREATE TABLE books (id SERIAL PRIMARY KEY, isbn VARCHAR NOT NULL, title VARCHAR NOT NULL, author VARCHAR NOT NULL, year VARCHAR NOT NULL)")
-
- for isbn, title, author, year in reader:
-   db.execute("INSERT INTO books (isbn, title, author, year) VALUES (:isbn, :title, :author, :year)", {"isbn": isbn, "title": title, "author": author, "year": year})
-
-   db.commit()
-
-
-if __name__ == "__main__":
-  main()
+#open books.csv and read it
+with open("books.csv") as csv_file:
+	csv_reader = csv.reader(csv_file, delimiter = ",")
+	line_count = 0
+	
+	# iterate through each entry
+	for row in csv_reader:
+		
+		# skip the headers
+		if line_count == 0:
+			line_count += 1
+		
+		# add each entry to the books table in the database
+		else:
+			conn.execute(s, a = row[0], b = row[1], c = row[2], d = row[3])
+			line_count += 1
